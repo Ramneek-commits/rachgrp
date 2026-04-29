@@ -41,7 +41,7 @@ class Drive_Square:
 
         #YOUR CODE GOES HERE#
         i = 0
-        while(i < 4):
+        while(true):
         	self.cmd_msg.header.stamp = rospy.Time.now()
         	self.cmd_msg.v = 1 # striaght line velocity
         	self.cmd_msg.omega = 0.0
@@ -51,11 +51,11 @@ class Drive_Square:
       
         	self.cmd_msg.header.stamp = rospy.Time.now()
         	self.cmd_msg.v = 0.0 # striaght line velocity
-        	self.cmd_msg.omega = 1.0
+        	self.cmd_msg.omega = 0.25
         	self.pub.publish(self.cmd_msg)
         	rospy.loginfo("Backward!")
         	rospy.sleep(1) # straight line driving time
-        	i= i+1
+        	
         
         ######################
                 
