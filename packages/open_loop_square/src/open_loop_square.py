@@ -14,7 +14,7 @@ class Drive_Square:
         
         #Initialize Pub/Subs
         self.pub = rospy.Publisher('/mybota002409/car_cmd_switch_node/cmd', Twist2DStamped, queue_size=1)
-        rospy.Subscriber('/mybot002409/fsm_node/mode', FSMState, self.fsm_callback, queue_size=1)
+        rospy.Subscriber('/mybota002409/fsm_node/mode', FSMState, self.fsm_callback, queue_size=1)
         
     # robot only moves when lane following is selected on the duckiebot joystick app
     def fsm_callback(self, msg):
@@ -55,7 +55,7 @@ class Drive_Square:
         	self.pub.publish(self.cmd_msg)
         	rospy.loginfo("Backward!")
         	rospy.sleep(1) # straight line driving time
-        	i++
+        	i= i+1
         
         ######################
                 
