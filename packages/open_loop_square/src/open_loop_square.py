@@ -9,7 +9,7 @@ class ClosedLoopSquare:
     def __init__(self):
         rospy.init_node("closed_loop_square_node", anonymous=True)
 
-        self.vehicle_name = rospy.get_param("~veh", "akandb")
+        self.vehicle_name = rospy.get_param("~veh", "mybota002409")
 
         self.cmd_topic = "/" + self.vehicle_name + "/car_cmd_switch_node/cmd"
         self.fsm_topic = "/" + self.vehicle_name + "/fsm_node/mode"
