@@ -1,0 +1,9 @@
+version: 1.0
+scripts:
+  map_0/sign_stop_0:
+    scripts:
+      - straight_line_script
+  map_0/sign_stop_2:
+    scripts:
+      - target_path_script
+      #- straight_line_script
