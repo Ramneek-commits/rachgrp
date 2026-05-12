@@ -27,7 +27,7 @@ class Lane_Detector:
         self.image_topic = "/mybota002409/camera_node/image/compressed"
 
         # Tuning parameters
-        self.crop_start_y = rospy.get_param("~crop_start_y", 250)
+        self.crop_start_y = rospy.get_param("~crop_start_y", 150)
         self.canny_low = rospy.get_param("~canny_low", 50)
         self.canny_high = rospy.get_param("~canny_high", 150)
 
