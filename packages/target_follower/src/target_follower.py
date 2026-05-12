@@ -74,7 +74,7 @@ class Target_Follower:
         omega = -kp * x
 
         # Limit max turning speed
-        max_omega = 2.0
+        max_omega = 3.0
 
         if omega > max_omega:
             omega = max_omega
@@ -83,7 +83,7 @@ class Target_Follower:
             omega = -max_omega
 
         # Small dead zone to reduce shaking
-        if abs(x) < 0.02:
+        if abs(x) < 0.01:
             omega = 0.0
 
         cmd_msg.omega = omega
