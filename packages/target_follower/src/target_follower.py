@@ -43,6 +43,15 @@ class Target_Follower:
         #### YOUR CODE GOES HERE ####
 
         if len(detections) == 0:
+            rospy.loginfo("No tag detected. Searching ...")
+
+            cmd_msg = Twist2DStamped()
+            cmd_msg.header.stamp = rospy.Time.now()
+
+            cmd_msg.v = 0
+            cmd_msg.omega = 1.0
+
+            self.cmd_vel_pub.publish(cmd_msg)
             return
 
         x = detections[0].transform.translation.x
