@@ -36,7 +36,7 @@ class ClosedLoopSquare:
 
         # Tune these after testing
         self.ticks_per_meter = 850
-        self.ticks_per_90_degrees = 210
+        self.ticks_per_90_degrees = 40
 
         rospy.loginfo("Closed loop square node started")
         rospy.loginfo("Command topic: %s", self.cmd_topic)
