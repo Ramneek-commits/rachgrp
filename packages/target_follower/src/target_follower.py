@@ -49,7 +49,7 @@ class Target_Follower:
             cmd_msg.header.stamp = rospy.Time.now()
 
             cmd_msg.v = 0
-            cmd_msg.omega = 1.0
+            cmd_msg.omega = -0.5
 
             self.cmd_vel_pub.publish(cmd_msg)
             return
