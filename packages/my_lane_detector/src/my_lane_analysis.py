@@ -13,7 +13,7 @@ class LaneAnalysis:
         self.cv_bridge = CvBridge()
         self.image_topic = "/mybota002409/camera_node/image/compressed"
 
-        self.crop_start_y = 250
+        self.crop_start_y = 150
 
         rospy.init_node("my_lane_analysis")
         rospy.loginfo("Subscribing to: %s", self.image_topic)
