@@ -38,18 +38,9 @@ class Target_Follower:
 
     def move_robot(self, detections):
 
-        #### YOUR CODE GOES HERE ####
-
         if len(detections) == 0:
-            rospy.loginfo("No tag detected. Searching ...")
-
-            cmd_msg = Twist2DStamped()
-            cmd_msg.header.stamp = rospy.Time.now()
-
-            cmd_msg.v = 0
-            cmd_msg.omega = -0.5
-
-            self.cmd_vel_pub.publish(cmd_msg)
+            rospy.loginfo("No tag detected. Stopping...")
+            self.stop_robot()
             return
 
         x = detections[0].transform.translation.x
@@ -58,38 +49,53 @@ class Target_Follower:
 
         rospy.loginfo("x,y,z: %f %f %f", x, y, z)
 
-        # Create velocity message
         cmd_msg = Twist2DStamped()
         cmd_msg.header.stamp = rospy.Time.now()
 
-        # Proportional controller
-        kp = 3.0
+        # -----------------------------
+        # Calibration values
+        # -----------------------------
+        target_distance = 0.4   # desired distance from tag 
+        kp_turn = 3.0           # turning strength
+        kp_forward = 0.8        # forward/backward strength
 
-        # Robot only rotates
-        cmd_msg.v = 0.0
+        max_omega = 2.0         # max turning speed
+        max_v = 0.3             # max forward speed
 
-        # Calculate turning speed
-        omega = -kp * x
+        x_deadzone = 0.02       # stop turning if tag is nearly centered
+        z_deadzone = 0.05       # stop moving if distance is close enough
 
-        # Limit max turning speed
-        max_omega = 3.0
 
+        if abs(x) < x_deadzone:
+            omega = 0.0
+        else:
+            omega = -kp_turn * x
+
+        # Limit omega
         if omega > max_omega:
             omega = max_omega
-
         if omega < -max_omega:
             omega = -max_omega
 
-        # Small dead zone to reduce shaking
-        if abs(x) < 0.01:
-            omega = 0.0
 
+        distance_error = z - target_distance
+
+        if abs(distance_error) < z_deadzone:
+            v = 0.0
+        else:
+            v = kp_forward * distance_error
+
+        # Limit forward/backward speed
+        if v > max_v:
+            v = max_v
+        if v < -max_v:
+            v = -max_v
+
+
+        cmd_msg.v = v
         cmd_msg.omega = omega
 
-        # Publish velocity
         self.cmd_vel_pub.publish(cmd_msg)
-        #############################
-
 if __name__ == '__main__':
     try:
         target_follower = Target_Follower()
