@@ -14,20 +14,20 @@ class LaneAnalysis:
         self.image_topic = "/mybota002409/camera_node/image/compressed"
 
         self.crop_start_y = 150
+        self.saved = False
 
-        # CHANGE THIS ONE LINE FOR EACH EXPERIMENT
-        # Options:
-        # "canny_30_100"
-        # "canny_50_150"
-        # "canny_100_200"
-        # "hough_20"
-        # "hough_40"
-        # "hough_70"
-        # "hsv_yellow"
-        # "bgr_yellow"
-        # "lighting_normal"
-        # "lighting_dark"
-        # "lighting_bright"
+        # Change this for each experiment:
+        # canny_30_100
+        # canny_50_150
+        # canny_100_200
+        # hough_20
+        # hough_40
+        # hough_70
+        # hsv_yellow
+        # bgr_yellow
+        # lighting_normal
+        # lighting_dark
+        # lighting_bright
         self.experiment = "canny_50_150"
 
         rospy.init_node("my_lane_analysis")
@@ -42,6 +42,9 @@ class LaneAnalysis:
         )
 
     def image_callback(self, msg):
+        if self.saved:
+            return
+
         img = self.cv_bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
 
         height, width = img.shape[:2]
@@ -50,20 +53,16 @@ class LaneAnalysis:
 
         hsv = cv2.cvtColor(cropped, cv2.COLOR_BGR2HSV)
 
-        # White HSV filter
         lower_white = np.array([0, 0, 180])
         upper_white = np.array([180, 40, 255])
         white_mask = cv2.inRange(hsv, lower_white, upper_white)
 
-        # Yellow HSV filter
         lower_yellow = np.array([15, 60, 80])
         upper_yellow = np.array([40, 255, 255])
         yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
-        # Remove yellow leakage from white
         white_mask = cv2.subtract(white_mask, yellow_mask)
 
-        # Clean masks
         kernel = np.ones((5, 5), np.uint8)
 
         white_mask = cv2.erode(white_mask, kernel, iterations=1)
@@ -76,9 +75,6 @@ class LaneAnalysis:
 
         output = cropped
 
-        # =========================
-        # CANNY EXPERIMENTS
-        # =========================
         if self.experiment == "canny_30_100":
             output = cv2.Canny(combined_mask, 30, 100)
 
@@ -88,9 +84,6 @@ class LaneAnalysis:
         elif self.experiment == "canny_100_200":
             output = cv2.Canny(combined_mask, 100, 200)
 
-        # =========================
-        # HOUGH EXPERIMENTS
-        # =========================
         elif self.experiment == "hough_20":
             output = self.hough_experiment(cropped, combined_mask, 20)
 
@@ -100,9 +93,6 @@ class LaneAnalysis:
         elif self.experiment == "hough_70":
             output = self.hough_experiment(cropped, combined_mask, 70)
 
-        # =========================
-        # HSV VS BGR YELLOW
-        # =========================
         elif self.experiment == "hsv_yellow":
             output = cv2.bitwise_and(cropped, cropped, mask=yellow_mask)
 
@@ -112,9 +102,6 @@ class LaneAnalysis:
             yellow_bgr_mask = cv2.inRange(cropped, lower_yellow_bgr, upper_yellow_bgr)
             output = cv2.bitwise_and(cropped, cropped, mask=yellow_bgr_mask)
 
-        # =========================
-        # LIGHTING EXPERIMENTS
-        # =========================
         elif self.experiment == "lighting_normal":
             output = self.run_lane_detection_for_lighting(cropped)
 
@@ -126,15 +113,15 @@ class LaneAnalysis:
             bright_img = cv2.convertScaleAbs(cropped, alpha=1.3, beta=30)
             output = self.run_lane_detection_for_lighting(bright_img)
 
-        cv2.imshow("experiment_output", output)
+        else:
+            rospy.logwarn("Unknown experiment: %s", self.experiment)
 
-        key = cv2.waitKey(1)
+        filename = self.experiment + ".png"
+        cv2.imwrite(filename, output)
+        print("Saved:", filename)
 
-        # Press S to save screenshot
-        if key == ord("s"):
-            filename = self.experiment + ".png"
-            cv2.imwrite(filename, output)
-            print("Saved:", filename)
+        self.saved = True
+        rospy.signal_shutdown("Saved one processed frame")
 
     def hough_experiment(self, image, mask, threshold_value):
         edges = cv2.Canny(mask, 50, 150)
@@ -162,8 +149,8 @@ class LaneAnalysis:
         yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
         white_mask = cv2.subtract(white_mask, yellow_mask)
-
         mask = cv2.bitwise_or(white_mask, yellow_mask)
+
         edges = cv2.Canny(mask, 50, 150)
 
         lines = cv2.HoughLinesP(
@@ -201,7 +188,7 @@ if __name__ == "__main__":
     try:
         print("Starting lane analysis node...")
         node = LaneAnalysis()
-        print("Node created. Waiting for image messages...")
+        print("Node created. Waiting for one image message...")
         node.run()
     except rospy.ROSInterruptException:
         pass
