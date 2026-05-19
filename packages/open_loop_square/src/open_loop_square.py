@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import rospy
-import math
 from duckietown_msgs.msg import Twist2DStamped, FSMState, WheelEncoderStamped
+from sensor_msgs.msg import Range
 
 
-class ClosedLoopSquare:
+class ClosedLoopSquareCollisionPrevention:
     def __init__(self):
-        rospy.init_node("closed_loop_square_node", anonymous=True)
+        rospy.init_node("closed_loop_square_collision_node", anonymous=True)
 
         self.vehicle_name = rospy.get_param("~veh", "mybota002409")
 
@@ -15,12 +15,14 @@ class ClosedLoopSquare:
         self.fsm_topic = "/" + self.vehicle_name + "/fsm_node/mode"
         self.left_encoder_topic = "/" + self.vehicle_name + "/left_wheel_encoder_node/tick"
         self.right_encoder_topic = "/" + self.vehicle_name + "/right_wheel_encoder_node/tick"
+        self.tof_topic = "/" + self.vehicle_name + "/front_center_tof_driver_node/range"
 
         self.pub = rospy.Publisher(self.cmd_topic, Twist2DStamped, queue_size=1)
 
         rospy.Subscriber(self.fsm_topic, FSMState, self.fsm_callback, queue_size=1)
         rospy.Subscriber(self.left_encoder_topic, WheelEncoderStamped, self.left_encoder_callback, queue_size=1)
         rospy.Subscriber(self.right_encoder_topic, WheelEncoderStamped, self.right_encoder_callback, queue_size=1)
+        rospy.Subscriber(self.tof_topic, Range, self.tof_callback, queue_size=1)
 
         self.cmd_msg = Twist2DStamped()
 
@@ -38,10 +40,14 @@ class ClosedLoopSquare:
         self.ticks_per_meter = 850
         self.ticks_per_90_degrees = 40
 
-        rospy.loginfo("Closed loop square node started")
+        # ToF obstacle threshold in metres
+        self.stop_distance = 0.25
+        self.obstacle_detected = False
+        self.latest_tof_distance = None
+
+        rospy.loginfo("Closed loop square collision-prevention node started")
         rospy.loginfo("Command topic: %s", self.cmd_topic)
-        rospy.loginfo("Left encoder topic: %s", self.left_encoder_topic)
-        rospy.loginfo("Right encoder topic: %s", self.right_encoder_topic)
+        rospy.loginfo("ToF topic: %s", self.tof_topic)
 
     def left_encoder_callback(self, msg):
         self.left_ticks = msg.data
@@ -50,6 +56,14 @@ class ClosedLoopSquare:
     def right_encoder_callback(self, msg):
         self.right_ticks = msg.data
         self.right_ready = True
+
+    def tof_callback(self, msg):
+        self.latest_tof_distance = msg.range
+
+        if msg.range < self.stop_distance:
+            self.obstacle_detected = True
+        else:
+            self.obstacle_detected = False
 
     def fsm_callback(self, msg):
         rospy.loginfo("FSM State: %s", msg.state)
@@ -73,13 +87,15 @@ class ClosedLoopSquare:
 
     def stop_robot(self):
         self.publish_cmd(0.0, 0.0)
-        rospy.sleep(0.3)
+        rospy.sleep(0.2)
 
     def wait_for_encoders(self):
         rospy.loginfo("Waiting for encoder messages...")
         rate = rospy.Rate(10)
+
         while not rospy.is_shutdown() and not (self.left_ready and self.right_ready):
             rate.sleep()
+
         rospy.loginfo("Encoder messages received")
 
     def reset_encoder_reference(self):
@@ -90,6 +106,17 @@ class ClosedLoopSquare:
         left_change = abs(self.left_ticks - self.start_left_ticks)
         right_change = abs(self.right_ticks - self.start_right_ticks)
         return (left_change + right_change) / 2.0
+
+    def wait_until_obstacle_removed(self, rate):
+        rospy.loginfo("Obstacle detected. Stopping and waiting...")
+
+        self.stop_robot()
+
+        while not rospy.is_shutdown() and self.obstacle_detected:
+            self.publish_cmd(0.0, 0.0)
+            rate.sleep()
+
+        rospy.loginfo("Obstacle removed. Continuing mission...")
 
     def move_straight(self, distance_m, speed):
         self.wait_for_encoders()
@@ -112,6 +139,17 @@ class ClosedLoopSquare:
 
             if current_ticks >= target_ticks:
                 break
+
+            # Collision prevention ONLY during forward straight movement
+            if distance_m > 0 and self.obstacle_detected:
+                self.wait_until_obstacle_removed(rate)
+                self.reset_encoder_reference()
+
+                # Important:
+                # Because we reset encoder reference after waiting,
+                # reduce remaining target distance by recalculating remaining ticks.
+                remaining_ticks = target_ticks - current_ticks
+                target_ticks = max(remaining_ticks, 0)
 
             self.publish_cmd(v, 0.0)
             rate.sleep()
@@ -141,6 +179,8 @@ class ClosedLoopSquare:
             if current_ticks >= target_ticks:
                 break
 
+            # Do NOT check obstacle here.
+            # Collision prevention should not affect in-place rotation.
             self.publish_cmd(0.0, omega)
             rate.sleep()
 
@@ -148,7 +188,7 @@ class ClosedLoopSquare:
         rospy.loginfo("Rotation completed. Final ticks: %.2f", self.average_tick_change())
 
     def draw_square(self):
-        rospy.loginfo("Starting closed loop square")
+        rospy.loginfo("Starting closed loop square with collision prevention")
 
         for i in range(4):
             rospy.loginfo("Square side %d", i + 1)
@@ -158,19 +198,10 @@ class ClosedLoopSquare:
             self.rotate_in_place(90, 3.5)
 
         self.stop_robot()
-        rospy.loginfo("Closed loop square completed")
+        rospy.loginfo("Square completed")
 
     def run_demo_sequence(self):
-        # For final square demo, keep only this active
         self.draw_square()
-
-        # For straight videos, use these one by one:
-        # self.move_straight(1.0, 0.25)
-        # self.move_straight(1.0, 0.40)
-
-        # For rotation videos, use these one by one:
-        # self.rotate_in_place(90, 2.5)
-        # self.rotate_in_place(90, 4.0)
 
     def run(self):
         rospy.spin()
@@ -178,7 +209,7 @@ class ClosedLoopSquare:
 
 if __name__ == "__main__":
     try:
-        node = ClosedLoopSquare()
+        node = ClosedLoopSquareCollisionPrevention()
         node.run()
     except rospy.ROSInterruptException:
         pass
