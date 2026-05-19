@@ -38,7 +38,7 @@ class ClosedLoopSquareCollisionPrevention:
 
         # Tune these after testing
         self.ticks_per_meter = 850
-        self.ticks_per_90_degrees = 40
+        self.ticks_per_90_degrees = 48
 
         # ToF obstacle threshold in metres
         self.stop_distance = 0.25
