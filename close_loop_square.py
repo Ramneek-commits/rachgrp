@@ -166,7 +166,9 @@ class ClosedLoopSquare:
 
         # For straight videos, use these one by one:
         # self.move_straight(1.0, 0.25)
+        # self.move_straight(-1.0, 0.25)
         # self.move_straight(1.0, 0.40)
+        # self.move_straight(-1.0, 0.40)
 
         # For rotation videos, use these one by one:
         # self.rotate_in_place(90, 2.5)
